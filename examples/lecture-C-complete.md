@@ -12,6 +12,10 @@ This notebook provides examples
 We need a new package, `nngeo`, that can be installed with the following
 script:
 
+``` r
+# install.packages("nngeo")
+```
+
 ## Dependencies
 
 This notebook requires the following packages
@@ -183,3 +187,45 @@ mapview(region, zcol = "zip")
 ```
 
 ![](lecture-C-complete_files/figure-gfm/explore-dissolved-region-1.png)<!-- -->
+
+## Dealing with Geometry Collections
+
+Sometimes when we geoprocess data, we get a mix of geometry types. This
+occurs with the `region` data, where we get a mix of `"POLYGON"` and
+`"MULTIPOLYGON"`
+    features:
+
+``` r
+st_is(region, "POLYGON")
+```
+
+    ##  [1] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE
+    ## [13] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE  TRUE FALSE
+    ## [25] FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE FALSE  TRUE FALSE
+    ## [37]  TRUE  TRUE FALSE FALSE  TRUE FALSE  TRUE FALSE FALSE FALSE FALSE  TRUE
+    ## [49] FALSE FALSE  TRUE FALSE FALSE  TRUE  TRUE FALSE FALSE FALSE FALSE  TRUE
+    ## [61] FALSE FALSE  TRUE FALSE
+
+This is known as a “geometry collection.” We can check the attributes of
+the `geometry` column in `region` to confirm this:
+
+``` r
+attributes(region$geometry)$class
+```
+
+    ## [1] "sfc_GEOMETRY" "sfc"
+
+We see `"sfc_GEOMETRY"` but expect either `"sfc_POLYGON"` or
+`"sfc_MULTIPOLYGON"` instead. We can convert to polygon using:
+
+``` r
+region <- st_collection_extract(region, "POLYGON")
+```
+
+Once these have been merged, we can explore them with `mapview()`:
+
+``` r
+mapview(region, zcol = "zip")
+```
+
+![](lecture-C-complete_files/figure-gfm/explore-final-1.png)<!-- -->

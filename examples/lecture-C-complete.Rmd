@@ -13,7 +13,7 @@ This notebook provides examples
 ## New Package
 We need a new package, `nngeo`, that can be installed with the following script:
 
-```{r install-nngeo, include = FALSE}
+```{r install-nngeo, eval = FALSE}
 # install.packages("nngeo")
 ```
 
@@ -114,6 +114,32 @@ Once these have been dissolved, we can explore them with `mapview()`:
 ```{r explore-dissolved-region}
 mapview(region, zcol = "zip")
 ```
+
+## Dealing with Geometry Collections
+Sometimes when we geoprocess data, we get a mix of geometry types. This occurs with the `region` data, where we get a mix of `"POLYGON"` and `"MULTIPOLYGON"` features:
+
+```{r geometry-types}
+st_is(region, "POLYGON")
+```
+
+This is known as a "geometry collection." We can check the attributes of the `geometry` column in `region` to confirm this:
+
+```{r geometry-attributes}
+attributes(region$geometry)$class
+```
+
+We see `"sfc_GEOMETRY"` but expect either `"sfc_POLYGON"` or `"sfc_MULTIPOLYGON"` instead. We can convert to polygon using:
+
+```{r collection-extract}
+region <- st_collection_extract(region, "POLYGON")
+```
+
+Once these have been merged, we can explore them with `mapview()`:
+
+```{r explore-final}
+mapview(region, zcol = "zip")
+```
+
 
 
 

@@ -107,3 +107,28 @@ Once these have been dissolved, we can explore them with `mapview()`:
 ```{r explore-dissolved-region}
 
 ```
+
+## Dealing with Geometry Collections
+Sometimes when we geoprocess data, we get a mix of geometry types. This occurs with the `region` data, where we get a mix of `"POLYGON"` and `"MULTIPOLYGON"` features:
+
+```{r geometry-types}
+
+```
+
+This is known as a "geometry collection." We can check the attributes of the `geometry` column in `region` to confirm this:
+
+```{r geometry-attributes}
+
+```
+
+We see `"sfc_GEOMETRY"` but expect either `"sfc_POLYGON"` or `"sfc_MULTIPOLYGON"` instead. We can convert to polygon using:
+
+```{r collection-extract}
+
+```
+
+Once these have been merged, we can explore them with `mapview()`:
+
+```{r explore-final}
+
+```
