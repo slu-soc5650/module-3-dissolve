@@ -72,11 +72,7 @@ bootheel <- counties(state = 29) %>%
 In our `preinct` data, we have a variable named `WARD10`. This is the City Ward that each precinct falls within. If we wanted to map wards instead of precincts, we can modify our geometric data using `group_by()` and `summarise()`:
 
 ```{r dissolve-ward}
-precinct %>%
-  select(WARD10) %>%
-  rename(ward = WARD10) %>%
-  group_by(ward) %>%
-  summarise() -> ward
+
 ```
 
 Once these have been dissolved, we can explore them with `mapview()`:
@@ -90,7 +86,7 @@ Notice how some wards, such as Ward 4 and Ward 21 in North City, Ward 6 and Ward
 The `nngeo` package has a great function `st_remove_holes()` that can be used to get rid of these:
 
 ```{r remove-ward-holes}
-ward <- st_remove_holes(ward)
+
 ```
 
 We can check out the differences with `mapview()`:
@@ -112,19 +108,13 @@ str(county)
 We're looking for matching column types and a minimal number of needed columns. For instance, I know that I'm going to get rid of everything except the ZIP itself (`GEOID_ZCTA`) and the total count of cases. We should also check to see if `GEOID_ZCTA` and `cases` are the same type of data in both objects, and correct if they are not:
 
 ```{r pre-format}
-# city data
-city %>%
-  select(GEOID_ZCTA, cases) %>%
-  mutate(GEOID_ZCTA = as.character(GEOID_ZCTA)) -> city
 
-# county data
-county <- select(county, GEOID_ZCTA, cases)
 ```
 
 Once we feel confident with any changes that need to be made (using `mutate()` and `select()`), we can use `rbind()` to combine them:
 
 ```{r merge}
-region <- rbind(city, county)
+
 ```
 
 Once these have been merged, we can explore them with `mapview()`:
@@ -136,16 +126,13 @@ mapview(region, zcol = "GEOID_ZCTA")
 Notice that zip codes that lie along the city-county boundary are split. We can use the dissolve features workflow to combine them!
 
 ```{r dissolve-zips}
-region %>%
-  select(GEOID_ZCTA, cases) %>%
-  group_by(GEOID_ZCTA) %>%
-  summarise(cases = sum(cases, na.rm = TRUE)) -> region
+
 ```
 
 We also want to check to make sure these data are not in a geometry collection. We see `"sfc_GEOMETRY"` but expect either `"sfc_POLYGON"` or `"sfc_MULTIPOLYGON"` instead. We can convert to polygon using:
 
 ```{r collection-extract}
-region <- st_collection_extract(region, "POLYGON")
+
 ```
 
 Once these have been reformatted correctly, we can explore them with `mapview()`:
@@ -164,7 +151,7 @@ mapview(bootheel)
 If we want to find the geographic center of both counties, we can calculate their centroids:
 
 ```{r bootheel-centroids}
-bootheel_centroids <- st_centroid(bootheel)
+
 ```
 
 Once we have those calculated, we can preview them to see how they've changed:
@@ -176,7 +163,7 @@ mapview(bootheel_centroids)
 Take a look at the centroid for Dunklin County, which falls *just* outside of the country boundary itself! In this case, the geographic center of Dunklin County is not actually in Dunklin County because of its distinctive shape. I love it! This is something to be aware of when you're geoprocessing your data. For example:
 
 ```{r intersect-bootheel-centroids}
-st_intersection(bootheel_centroids, bootheel)
+
 ```
 
 Notice how the centroid for Dunklin County isn't returned!
@@ -185,8 +172,7 @@ Notice how the centroid for Dunklin County isn't returned!
 Imagine we had not started out with county attributes in our ZIP code data, but we wanted to know which ZIP codes fall in St. Louis City or St. Louis County. This is tricky, because we don't know (in this hypothetical scenario) how many cases can be attributed to the city or the county. One way to get a rough sense is to located ZIPs by where their centroid falls. To do this, we'll start by calculating centroids for each ZIP:
 
 ```{r calculate-centroids}
-# calculate
-centroids <- st_centroid(region)
+
 ```
 
 Let's take a look at how these data changed. First, we'll check out their structure:
@@ -206,7 +192,7 @@ One thing I look for are centroid that might actually fall outside of the county
 Next, we'll label our zips with the centroid they fall in. To do this, we'll intersect our county polygons with the centroid values:
 
 ```{r}
-centroids <- st_intersection(centroids, counties)
+
 ```
 
 Notice that the number of observations doesn't change, so we know that all of the centroids fell within the tract boundaries. If we did lose a county, how could we handle it?
@@ -227,7 +213,7 @@ region %>%
   filter(GEOID_ZCTA == "63108") -> zip_pre
 
 # calculate buffer
-zip_post <- st_buffer(zip_pre, dis = 500)
+
 ```
 
 The value `500` refers to 500 meters. We know it is meters based on the coordinate system:
@@ -244,11 +230,4 @@ mapview(zip_pre)
 
 ```{r preview-post}
 mapview(zip_post)
-```
- 
-```{r move-to-docs, include=FALSE}
-# you do need to include this in any notebook you create for this class
-fs::file_copy(here::here("examples", "meeting-examples-complete.nb.html"), 
-              here::here("docs", "index.nb.html"), 
-              overwrite = TRUE)
 ```
