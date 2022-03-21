@@ -1,0 +1,233 @@
+---
+title: "Meeting Notebook - Complete"
+author: "Christopher Prener, Ph.D."
+date: '(`r format(Sys.time(), "%B %d, %Y")`)'
+output: 
+  github_document: default
+  html_notebook: default 
+---
+
+## Introduction
+This notebook provides examples of binding data, dissolving features, calculating centroids, and creating buffers.
+
+## New Package
+We need a new package, `nngeo`, that can be installed with the following script:
+
+```r
+install.packages("nngeo")
+```
+
+## Dependencies
+This notebook requires the following packages
+
+```{r load-packages}
+# tidyverse packages
+library(dplyr)    # data wrangling
+
+# spatial packages
+library(mapview)  # preview spatial data
+library(nngeo)    # eliminate holes
+library(sf)       # spatial tools
+library(tigris)   # TIGER/Line
+
+# other packages
+library(here)     # file path management
+```
+
+## Load Data
+This notebook requires three files:
+
+```{r load-data}
+# precinct data
+precinct <- st_read(here("data", "example-data", "POL_WRD_2010_Prec", "POL_WRD_2010_Prec.shp"), 
+                    stringsAsFactors = FALSE) %>%
+  st_transform(crs = 3602)
+
+# COVID zip code data
+city <- st_read(here("data", "example-data", "daily_snapshot_stl_city.geojson"), 
+                crs = 4326, stringsAsFactors = FALSE) %>%
+  st_transform(crs = 3602) %>%
+  mutate(GEOID_ZCTA = as.numeric(GEOID_ZCTA))
+
+county <- st_read(here("data", "example-data", "daily_snapshot_stl_county.geojson"), 
+                  crs = 4326, stringsAsFactors = FALSE) %>%
+  st_transform(crs = 3602)
+```
+
+We'll also get some data on the St. Louis City and County boundaries as well as on Dunklin and Pemiscot counties in the Bootheel:
+
+```{r tigris-data}
+counties <- counties(state = 29) %>%
+  filter(GEOID %in% c("29189", "29510")) %>%
+  select(GEOID, NAMELSAD) %>%
+  st_transform(crs = 3602)
+
+bootheel <- counties(state = 29) %>%
+  filter(GEOID %in% c("29069", "29155")) %>%
+  select(GEOID, NAMELSAD) %>%
+  st_transform(crs = 3602)
+```
+
+## Dissolving Features
+In our `preinct` data, we have a variable named `WARD10`. This is the City Ward that each precinct falls within. If we wanted to map wards instead of precincts, we can modify our geometric data using `group_by()` and `summarise()`:
+
+```{r dissolve-ward}
+
+```
+
+Once these have been dissolved, we can explore them with `mapview()`:
+
+```{r explore-ward}
+mapview(ward)
+```
+
+Notice how some wards, such as Ward 4 and Ward 21 in North City, Ward 6 and Ward 7 in Downtown, and Wards 12, 15, and 23 in South City have "holes." These are common artifacts of the dissolve process that result from precincts' geometries not *perfectly* abutting each other.
+
+The `nngeo` package has a great function `st_remove_holes()` that can be used to get rid of these:
+
+```{r remove-ward-holes}
+
+```
+
+We can check out the differences with `mapview()`:
+
+```{r check-ward}
+mapview(ward)
+```
+
+Be careful with removing holes, particularly if your features have enclaves in them (as Kansas City does) - those enclaves will get removed as well, and `st_difference()` will have to be used to cut the enclaves back out!
+
+## Merging Features
+Last week, we quickly introduced `rbind()` to combine `sf` objects. I want to talk a bit more about that process today, and also connect it to the dissolve workflow from above. Sometimes, we get data that we want to use in separate files, such as the `city` and `county` COVID data (current as of 2021-03-21). Be sure to check them first to make sure they have the same names/types of columns to prevent issues with your bound data:
+
+```{r check}
+str(city)
+str(county)
+```
+
+We're looking for matching column types and a minimal number of needed columns. For instance, I know that I'm going to get rid of everything except the ZIP itself (`GEOID_ZCTA`) and the total count of cases. We should also check to see if `GEOID_ZCTA` and `cases` are the same type of data in both objects, and correct if they are not:
+
+```{r pre-format}
+
+```
+
+Once we feel confident with any changes that need to be made (using `mutate()` and `select()`), we can use `rbind()` to combine them:
+
+```{r merge}
+
+```
+
+Once these have been merged, we can explore them with `mapview()`:
+
+```{r explore-region}
+mapview(region, zcol = "GEOID_ZCTA")
+```
+
+Notice that zip codes that lie along the city-county boundary are split. We can use the dissolve features workflow to combine them!
+
+```{r dissolve-zips}
+
+```
+
+We also want to check to make sure these data are not in a geometry collection. We see `"sfc_GEOMETRY"` but expect either `"sfc_POLYGON"` or `"sfc_MULTIPOLYGON"` instead. We can convert to polygon using:
+
+```{r collection-extract}
+
+```
+
+Once these have been reformatted correctly, we can explore them with `mapview()`:
+
+```{r explore-dissolved-region}
+mapview(region, zcol = "GEOID_ZCTA")
+```
+
+## Centroids
+Centroids are the geographic center of a feature. Take, for example, these two counties (Dunklin and Pemiscot) in the very southeast corner of Missouri - what we call the "Bootheel":
+
+```{r preview-bootheel}
+mapview(bootheel)
+```
+
+If we want to find the geographic center of both counties, we can calculate their centroids:
+
+```{r bootheel-centroids}
+
+```
+
+Once we have those calculated, we can preview them to see how they've changed:
+
+```{r preview-bootheel-centroids}
+mapview(bootheel_centroids)
+```
+
+Take a look at the centroid for Dunklin County, which falls *just* outside of the country boundary itself! In this case, the geographic center of Dunklin County is not actually in Dunklin County because of its distinctive shape. I love it! This is something to be aware of when you're geoprocessing your data. For example:
+
+```{r intersect-bootheel-centroids}
+
+```
+
+Notice how the centroid for Dunklin County isn't returned!
+
+### Example
+Imagine we had not started out with county attributes in our ZIP code data, but we wanted to know which ZIP codes fall in St. Louis City or St. Louis County. This is tricky, because we don't know (in this hypothetical scenario) how many cases can be attributed to the city or the county. One way to get a rough sense is to located ZIPs by where their centroid falls. To do this, we'll start by calculating centroids for each ZIP:
+
+```{r calculate-centroids}
+
+```
+
+Let's take a look at how these data changed. First, we'll check out their structure:
+
+```{r centroid-structure}
+str(centroids)
+```
+
+Notice that they have the *exact same* attributes, but that their geometry has become points. Let's also map them:
+
+```{r preview-centroids}
+mapview(centroids, zcol = "GEOID_ZCTA")
+```
+
+One thing I look for are centroid that might actually fall outside of the county itself. ZIP 63304 (along the Missouri River near Chesterfield) stands out as a possibility here.
+
+Next, we'll label our zips with the centroid they fall in. To do this, we'll intersect our county polygons with the centroid values:
+
+```{r}
+
+```
+
+Notice that the number of observations doesn't change, so we know that all of the centroids fell within the tract boundaries. If we did lose a county, how could we handle it?
+
+We'll preview them to get a sense of how the data have changed:
+
+```{r preview-zip-centroids}
+mapview(centroids, zcol = "GEOID_ZCTA")
+```
+
+## Buffers
+Finally, I want to illustrate calculating a buffer. For example, we might want to get a count of crimes that fall within or near a ZIP code in the City. We'll extract 63108, the ZIP that SLU partially falls in, and buffer around it:
+
+```{r}
+# data cleaning
+region %>%
+  select(GEOID_ZCTA) %>%
+  filter(GEOID_ZCTA == "63108") -> zip_pre
+
+# calculate buffer
+
+```
+
+The value `500` refers to 500 meters. We know it is meters based on the coordinate system:
+
+```{r}
+st_crs(zip_post)
+```
+
+We'll preview the initial zip first, and then preview the change:
+
+```{r preview-pre}
+mapview(zip_pre)
+```
+
+```{r preview-post}
+mapview(zip_post)
+```
